@@ -1,0 +1,84 @@
+import urllib
+import urllib.error
+import urllib.request
+
+
+from langchain.agents import create_agent
+from deepagents import create_deep_agent
+
+from langchain.tools import tool
+from langchain.chat_models import init_chat_model
+
+from langgraph.checkpoint.memory import InMemorySaver
+
+from dotenv import load_dotenv
+
+load_dotenv()
+
+SYSTEM_PROMPT="""You are a literary data assistant.
+
+## Capabilities
+
+- `fetch_text_from_url`: loads document text from a URL into the conversation.
+Do not guess line counts or positions—ground them in tool results from the saved file."""
+
+@tool
+def fetch_url_from_text(url:str)->str:
+    """Fetch the url from the text"""
+    req=urllib.request.Request(url,headers={"User-Agent":"Mozilla/5.0(comptatible;quickstart-research/1.0)"})
+    try:
+        with urllib.request.urlopen(req,timeout=120) as resp:
+            raw=resp.read()
+    except urllib.error.URLError as e:
+        return f"Fetch Failed : {e}"
+    text=raw.decode('utf-8',errors="replace")
+    return text
+
+model=init_chat_model(
+    model="openai/gpt-oss-20b",
+    model_provider="groq",
+    temperature=0.2,
+    max_tokens=4000,
+    timeout=600,
+    streaming=True
+)
+checkpointer=InMemorySaver()
+agent=create_agent(
+    model=model,
+    system_prompt=SYSTEM_PROMPT,
+    tools=[fetch_url_from_text],
+    checkpointer=checkpointer,
+)
+deep_agent=create_deep_agent(
+    model=model,
+    system_prompt=SYSTEM_PROMPT,
+    tools=[fetch_url_from_text],
+    checkpointer=checkpointer,
+)
+
+content = f"""Project Gutenberg hosts a full plain-text copy of F. Scott Fitzgerald's The Great Gatsby.
+URL: https://www.gutenberg.org/files/64317/64317-0.txt
+
+Answer as much as you can:
+
+1) How many lines in the complete Gutenberg file contain the substring `Gatsby` (count lines, not occurrences within a line, each line ends with a line break).
+2) The 1-based line number of the first line in the file that contains `Daisy`.
+3) A two-sentence neutral synopsis.
+
+Do your best on (1) and (2). If at any point you realize you cannot **verify** an exact answer with
+your available tools and reasoning, do not fabricate numbers: use `null` for that field and spell out
+the limitation in `how_you_computed_counts`. If you encounter any errors please report what the error was and what the error message was."""
+
+print("langchaain agent running",flush=True)
+res1=agent.invoke({"messages":[{"role":"user","content":content}]},config={"configurable":{"thread_id":"test1"}})
+
+print("deep agent running",flush=True)
+res2=deep_agent.invoke({"messages":[{"role":"user","content":content}]},config={"configurable":{"thread_id":"test2"}})
+
+print("agent reponse:")
+print(res1["messages"][-1].content)
+
+print("Deep agent reponse:")
+print(res2["messages"][-1].content)
+
+
