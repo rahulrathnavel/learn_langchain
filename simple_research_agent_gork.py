@@ -32,7 +32,7 @@ def fetch_url_from_text(url:str)->str:
     except urllib.error.URLError as e:
         return f"Fetch Failed : {e}"
     text=raw.decode('utf-8',errors="replace")
-    return text
+    return text[:3000]
 
 model=init_chat_model(
     model="openai/gpt-oss-20b",

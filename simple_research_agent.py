@@ -1,6 +1,7 @@
 import urllib
 import urllib.error
 import urllib.request
+import warnings
 
 from langchain.agents import create_agent
 from deepagents import create_deep_agent
@@ -9,7 +10,11 @@ from langchain.tools import tool
 from langchain.chat_models import init_chat_model
 
 from langgraph.checkpoint.memory import InMemorySaver
+from dotenv import load_dotenv
 
+load_dotenv()
+
+warnings.filterwarnings("ignore")
 SYSTEM_PROMPT="""You are a literary data assistant.
 
 ## Capabilities
@@ -27,11 +32,11 @@ def fetch_url_from_text(url:str)->str:
     except urllib.error.URLError as e:
         return f"Fetch Failed : {e}"
     text=raw.decode('utf-8',errors="replace")
-    return text
+    return text[:3000]
 
 model=init_chat_model(
     model="gemini-3.5-flash-lite",
-    model_provider="google-genai",
+    model_provider="google_genai",
     temperature=0.2,
     max_tokens=5000,
     timeout=600,
